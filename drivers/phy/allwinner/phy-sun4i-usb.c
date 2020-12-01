@@ -29,7 +29,9 @@
 #include <linux/phy/phy.h>
 #include <linux/phy/phy-sun4i-usb.h>
 #include <linux/platform_device.h>
+#ifdef CONFIG_POWER_SUPPLY
 #include <linux/power_supply.h>
+#endif
 #include <linux/regulator/consumer.h>
 #include <linux/reset.h>
 #include <linux/spinlock.h>
@@ -143,9 +145,11 @@ struct sun4i_usb_phy_data {
 	bool phy0_init;
 	struct gpio_desc *id_det_gpio;
 	struct gpio_desc *vbus_det_gpio;
+#ifdef CONFIG_POWER_SUPPLY
 	struct power_supply *vbus_power_supply;
 	struct notifier_block vbus_power_nb;
 	bool vbus_power_nb_registered;
+#endif
 	bool force_session_end;
 	int id_det_irq;
 	int vbus_det_irq;
@@ -382,6 +386,7 @@ static int sun4i_usb_phy0_get_vbus_det(struct sun4i_usb_phy_data *data)
 	if (data->vbus_det_gpio)
 		return gpiod_get_value_cansleep(data->vbus_det_gpio);
 
+#ifdef CONFIG_POWER_SUPPLY
 	if (data->vbus_power_supply) {
 		union power_supply_propval val;
 		int r;
@@ -391,6 +396,7 @@ static int sun4i_usb_phy0_get_vbus_det(struct sun4i_usb_phy_data *data)
 		if (r == 0)
 			return val.intval;
 	}
+#endif
 
 	/* Fallback: report vbus as high */
 	return 1;
@@ -398,7 +404,11 @@ static int sun4i_usb_phy0_get_vbus_det(struct sun4i_usb_phy_data *data)
 
 static bool sun4i_usb_phy0_have_vbus_det(struct sun4i_usb_phy_data *data)
 {
-	return data->vbus_det_gpio || data->vbus_power_supply;
+	return data->vbus_det_gpio
+#ifdef CONFIG_POWER_SUPPLY
+		|| data->vbus_power_supply
+#endif
+	;
 }
 
 static bool sun4i_usb_phy0_poll(struct sun4i_usb_phy_data *data)
@@ -415,7 +425,10 @@ static bool sun4i_usb_phy0_poll(struct sun4i_usb_phy_data *data)
 	 */
 	if ((data->cfg->type == sun6i_a31_phy ||
 	     data->cfg->type == sun8i_a33_phy) &&
-	    data->vbus_power_supply && data->phys[0].regulator_on)
+#ifdef CONFIG_POWER_SUPPLY
+	    data->vbus_power_supply &&
+#endif
+	    data->phys[0].regulator_on)
 		return true;
 
 	return false;
@@ -630,6 +643,7 @@ static irqreturn_t sun4i_usb_phy0_id_vbus_det_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_POWER_SUPPLY
 static int sun4i_usb_phy0_vbus_notify(struct notifier_block *nb,
 				      unsigned long val, void *v)
 {
@@ -643,6 +657,7 @@ static int sun4i_usb_phy0_vbus_notify(struct notifier_block *nb,
 
 	return NOTIFY_OK;
 }
+#endif
 
 static struct phy *sun4i_usb_phy_xlate(struct device *dev,
 					struct of_phandle_args *args)
@@ -663,8 +678,11 @@ static int sun4i_usb_phy_remove(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct sun4i_usb_phy_data *data = dev_get_drvdata(dev);
 
+#ifdef CONFIG_POWER_SUPPLY
 	if (data->vbus_power_nb_registered)
 		power_supply_unreg_notifier(&data->vbus_power_nb);
+#endif
+
 	if (data->id_det_irq > 0)
 		devm_free_irq(dev, data->id_det_irq, data);
 	if (data->vbus_det_irq > 0)
@@ -720,6 +738,7 @@ static int sun4i_usb_phy_probe(struct platform_device *pdev)
 		return PTR_ERR(data->vbus_det_gpio);
 	}
 
+#ifdef CONFIG_POWER_SUPPLY
 	if (of_find_property(np, "usb0_vbus_power-supply", NULL)) {
 		data->vbus_power_supply = devm_power_supply_get_by_phandle(dev,
 						     "usb0_vbus_power-supply");
@@ -731,6 +750,7 @@ static int sun4i_usb_phy_probe(struct platform_device *pdev)
 		if (!data->vbus_power_supply)
 			return -EPROBE_DEFER;
 	}
+#endif
 
 	data->dr_mode = of_usb_get_dr_mode_by_phy(np, 0);
 
@@ -840,6 +860,7 @@ static int sun4i_usb_phy_probe(struct platform_device *pdev)
 		}
 	}
 
+#ifdef CONFIG_POWER_SUPPLY
 	if (data->vbus_power_supply) {
 		data->vbus_power_nb.notifier_call = sun4i_usb_phy0_vbus_notify;
 		data->vbus_power_nb.priority = 0;
@@ -850,6 +871,7 @@ static int sun4i_usb_phy_probe(struct platform_device *pdev)
 		}
 		data->vbus_power_nb_registered = true;
 	}
+#endif
 
 	phy_provider = devm_of_phy_provider_register(dev, sun4i_usb_phy_xlate);
 	if (IS_ERR(phy_provider)) {

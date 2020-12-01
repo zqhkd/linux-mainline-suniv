@@ -8,7 +8,6 @@ config PHY_SUN4I_USB
 	depends on HAS_IOMEM
 	depends on RESET_CONTROLLER
 	depends on EXTCON
-	depends on POWER_SUPPLY
 	depends on USB_SUPPORT
 	select GENERIC_PHY
 	select USB_COMMON
