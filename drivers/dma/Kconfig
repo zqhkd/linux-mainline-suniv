@@ -158,14 +158,14 @@ config DMA_SA11X0
 	  devices.
 
 config DMA_SUN4I
-	tristate "Allwinner A10 DMA SoCs support"
-	depends on MACH_SUN4I || MACH_SUN5I || MACH_SUN7I
-	default (MACH_SUN4I || MACH_SUN5I || MACH_SUN7I)
+	tristate "Allwinner A10/F1C100S DMA SoCs support"
+	depends on MACH_SUN4I || MACH_SUN5I || MACH_SUN7I || MACH_SUNIV
+	default (MACH_SUN4I || MACH_SUN5I || MACH_SUN7I || MACH_SUNIV)
 	select DMA_ENGINE
 	select DMA_VIRTUAL_CHANNELS
 	help
 	  Enable support for the DMA controller present in the sun4i,
-	  sun5i and sun7i Allwinner ARM SoCs.
+	  sun5i, sun7i, suniv Allwinner ARM SoCs.
 
 config DMA_SUN6I
 	tristate "Allwinner A31 SoCs DMA support"
